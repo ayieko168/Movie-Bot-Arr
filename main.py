@@ -280,16 +280,18 @@ async def movie_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         url = f"http://localhost:7878/api/v3/movie/lookup?term={search_term}&apikey={RADARR_KEY}"
         r = requests.get(url)
+
+        ## Check responce
+        if r.status_code != 200:
+            msg_str = f"SEARCH RESPONCE ERROR: <{r.status_code}>. Try Again\n/help"
+            await update.message.reply_text(msg_str)
+            return ConversationHandler.END
+
     except Exception as e:
-        msg_str = f"REQUEST ERROR: {e}. Try Again\n/help"
+        msg_str = f"SEARCH REQUEST ERROR: {e}. Try Again\n/help"
         await update.message.reply_text(msg_str)
         return ConversationHandler.END
 
-    ## Check responce
-    if r.status_code != 200:
-        msg_str = f"RESPONCE ERROR: <{r.status_code}>. Try Again\n/help"
-        await update.message.reply_text(msg_str)
-        return ConversationHandler.END
     
     ## Purse the movies
     results = r.json()
@@ -305,6 +307,7 @@ async def movie_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         movie_data['year'] = movie['year']
         movie_data['hasFile'] = movie['hasFile']
         movie_data['tmdbId'] = movie['tmdbId']
+        movie_data['imdbId'] = movie['imdbId']
         movies.append(movie_data)
 
         # print(movie_data['title'])
@@ -314,7 +317,7 @@ async def movie_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     for movie in movies:
         buttons = []
-        str_data = f"{movie['title']} {DELIMITER} {movie['tmdbId']} {DELIMITER} {movie['year']}"
+        str_data = f"{movie['tmdbId']} {DELIMITER} {movie['imdbId']}"
         x = InlineKeyboardButton(f"{'✅' if movie['hasFile'] else ''} {movie['title']} ({ movie['year']})", callback_data=str_data)
         buttons.append(x)
         keyboard.append(buttons)
@@ -330,11 +333,33 @@ async def confirfm_movie_selection(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     await query.answer()
 
-    movie_title, movie_id, movie_year = str(query.data).split(DELIMITER)
-    movie_year = movie_year.strip()
-    movie_title = f"{movie_title.strip().title()} ({movie_year})"
-    movie_title = movie_title.translate(str.maketrans('', '', string.punctuation))
-    movie_id = int(movie_id.strip())
+    tmdb_id, imdb_id = str(query.data).split(DELIMITER)
+    tmdb_id = str(tmdb_id).strip()
+    imdb_id = str(imdb_id).strip()
+    
+    ## Get the data from tvdb api
+    await query.message.reply_text("Getting movie info...")
+    try:
+        end_point = f"https://imdb-api.com/en/API/Title/k_f01i69si/{imdb_id}"
+        r = requests.get(end_point)
+        print(f"Getting movie info: {end_point}")
+        
+        ## Check responce
+        if r.status_code != 200:
+            msg_str = f"RESPONCE ERROR: <{r.status_code}>\n\n/help"
+            await query.message.reply_text(msg_str)
+            return
+        
+        movie_data = r.json()
+
+    except Exception as e:
+        msg_str = f"REQUEST ERROR: {e}\n/help"
+        await query.message.reply_text(msg_str)
+        return 
+    
+    
+    movie_title = movie_data['title']
+    movie_id = int(tmdb_id)
     
 
     await query.message.reply_text(text=f"👍 Processing {movie_title} download...")
@@ -358,17 +383,23 @@ async def confirfm_movie_selection(update: Update, context: ContextTypes.DEFAULT
     try:
         end_point = f"http://localhost:7878/api/v3/movie?apikey={RADARR_KEY}"
         r = requests.post(end_point, json=payload)
+
+        ## Check responce
+        if r.status_code == 400:
+            msg_str = f"SEND POST RESPONCE ERROR: <{r.status_code}> {r.json()[0]['errorMessage']}\n\n/help"
+            await query.message.reply_text(msg_str)
+            return
+        
+        elif r.status_code != 201:
+            msg_str = f"SEND POST RESPONCE ERROR: <{r.status_code}>\n\n/help"
+            await query.message.reply_text(msg_str)
+            return
+
     except Exception as e:
-        msg_str = f"REQUEST ERROR: {e}\n/help"
+        msg_str = f"SEND POST REQUEST EXCEPTION: {e}\n/help"
         await query.message.reply_text(msg_str)
         return 
     
-    ## Check responce
-    if r.status_code != 201:
-        msg_str = f"RESPONCE ERROR: <{r.status_code}>\n\n/help"
-        await query.message.reply_text(msg_str)
-        return
-
     added_movie_data = r.json()
     reply_msg = f""" ✅ Successfully added: {added_movie_data['title']} ({added_movie_data['images'][0]['remoteUrl']})\n\n/help"""
     
