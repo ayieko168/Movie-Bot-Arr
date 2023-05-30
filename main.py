@@ -2,6 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputTe
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
 import telegram
 from telegram.constants import ParseMode
+from telegram.ext import CallbackContext
 import os
 import json
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ RECIPIENTS = os.environ["RECIPIENTS"]
 VISITOR_FILE = os.path.join(ROOT_DIR, 'src', 'visitors.json')
 interactions_ids = {}
 TITLE_ROUTES, MOVIE_TITLE, SELECTION, SHOW_TITLE, TV_SELECTION = range(5)
-RADARR_KEY = "33addebd9a994a7eb70b71ef128aa6bd"
+RADARR_KEY = "9bcf0e58369a4073972eac8f964be7e8"
 SONARR_KEY = "33a3824e00884aac92b5ed0d3e991229"
 DELIMITER = 'AND'
 
@@ -559,9 +560,8 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Returns `ConversationHandler.END`, which tells the
     ConversationHandler that the conversation is over.
     """
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(text="See you next time!")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Exiting the downloader. Goodbye!")
+    # update.message.reply_text("Exiting the downloader. Goodbye!")
     return ConversationHandler.END
 
 
@@ -627,27 +627,22 @@ def run_bot():
                 CallbackQueryHandler(ask_movie_title, pattern="^" + "MOVIE" + "$"),
                 CallbackQueryHandler(ask_show_title, pattern="^" + "SHOW" + "$"),
                 CallbackQueryHandler(end, pattern="^" + "EXIT" + "$"),
-                CommandHandler("exit", end)
             ],
             MOVIE_TITLE: [
                 MessageHandler(filters.TEXT, movie_search),
-                CommandHandler("exit", end)
             ],
             SELECTION: [
                 CallbackQueryHandler(confirfm_movie_selection, pattern=".*"),
                 # MessageHandler(filters.TEXT, confirfm_selection),
-                CommandHandler("exit", end)
             ],
             SHOW_TITLE: [
                 MessageHandler(filters.TEXT, show_search),
-                CommandHandler("exit", end)
             ],
             TV_SELECTION: [
                 CallbackQueryHandler(confirfm_tv_selection, pattern=".*"),
-                CommandHandler("exit", end)
             ],
         },
-        fallbacks=[CommandHandler("help", _help)],
+        fallbacks=[CommandHandler("exit", end), CommandHandler("help", _help)],
     )
 
     # Add ConversationHandler to application that will be used for handling updates
