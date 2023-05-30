@@ -9,6 +9,7 @@ from datetime import datetime
 import time
 import requests
 import string
+import asyncio
 
 telegram.InlineKeyboardButton.MAX_CALLBACK_DATA = 128
 # print(telegram.InlineKeyboardButton.MAX_CALLBACK_DATA)
@@ -33,7 +34,6 @@ if not os.path.isfile(VISITOR_FILE):
 ## Telegram Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_user(update)
-    
     await update.message.reply_text("Movie Manager Bot.\nUse /help to see available commands.")
 
 
@@ -307,10 +307,12 @@ async def movie_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         movie_data['year'] = movie['year']
         movie_data['hasFile'] = movie['hasFile']
         movie_data['tmdbId'] = movie['tmdbId']
-        movie_data['imdbId'] = movie['imdbId']
-        movies.append(movie_data)
+        movie_data['imdbId'] = movie.get('imdbId')
+        
+        if movie_data['imdbId'] is not None:
+            movies.append(movie_data)
 
-        # print(movie_data['title'])
+        print(movie_data['title'])
     
 
     ## Create buttons with the titles
@@ -403,6 +405,7 @@ async def confirfm_movie_selection(update: Update, context: ContextTypes.DEFAULT
     added_movie_data = r.json()
     reply_msg = f""" ✅ Successfully added: {added_movie_data['title']} ({added_movie_data['images'][0]['remoteUrl']})\n\n/help"""
     
+    await send_alert(f"Started new download of {added_movie_data['title']}")
     await query.message.reply_text(reply_msg)
     return ConversationHandler.END
 
@@ -547,6 +550,7 @@ async def confirfm_tv_selection(update: Update, context: ContextTypes.DEFAULT_TY
     added_movie_data = r.json()
     reply_msg = f""" ✅ Successfully added: {added_movie_data['title']} ({added_movie_data['images'][0]['remoteUrl']})\n\n/help"""
     
+    await send_alert(f"Started new download of {added_movie_data['title']}")
     await query.message.reply_text(reply_msg)
     return ConversationHandler.END
 
@@ -577,6 +581,13 @@ async def list_visitors(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(text=msg_str)
     else:
         await update.message.reply_text(text="TEST OK")
+
+
+async def send_alert(message):
+
+    for user_id in json.loads(RECIPIENTS):
+        print(f"SENDING TEXT TO : {user_id}")
+        await telegram.Bot(BOT_TOKEN).send_message(chat_id=user_id, text=message)
 
 
 ## Utility Commands
