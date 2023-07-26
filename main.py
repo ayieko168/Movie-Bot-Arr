@@ -78,9 +78,9 @@ async def list_movies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg_str)
         return 
 
-    ## Check responce
+    ## Check RESPONSE
     if r.status_code != 200:
-        msg_str = f"RESPONCE ERROR: <{r.status_code}>"
+        msg_str = f"RESPONSE ERROR: <{r.status_code}>"
         await update.message.reply_text(msg_str)
         return 
     
@@ -116,9 +116,9 @@ async def movies_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg_str)
         return 
 
-    ## Check responce
+    ## Check RESPONSE
     if r.status_code != 200:
-        msg_str = f"RESPONCE ERROR: <{r.status_code}>"
+        msg_str = f"RESPONSE ERROR: <{r.status_code}>"
         await update.message.reply_text(msg_str)
         return 
 
@@ -155,9 +155,9 @@ async def list_shows(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = f"http://localhost:8989/api/v3/series?apikey={SONARR_KEY}"
         r = requests.get(url)
 
-        ## Check responce
+        ## Check RESPONSE
         if r.status_code != 200:
-            msg_str = f"RESPONCE ERROR: <{r.status_code}>"
+            msg_str = f"RESPONSE ERROR: <{r.status_code}>"
             await update.message.reply_text(msg_str)
             return ConversationHandler.END
 
@@ -211,9 +211,9 @@ async def shows_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = f"http://localhost:8989/api/v3/queue?includeUnknownSeriesItems=false&includeSeries=true&includeEpisode=true&apikey={SONARR_KEY}&pageSize=100"
         r = requests.get(url)
 
-        ## Check responce
+        ## Check RESPONSE
         if r.status_code != 200:
-            msg_str = f"RESPONCE ERROR: <{r.status_code}>"
+            msg_str = f"RESPONSE ERROR: <{r.status_code}>"
             await update.message.reply_text(msg_str)
             return ConversationHandler.END
 
@@ -282,9 +282,9 @@ async def movie_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = f"http://localhost:7878/api/v3/movie/lookup?term={search_term}&apikey={RADARR_KEY}"
         r = requests.get(url)
 
-        ## Check responce
+        ## Check RESPONSE
         if r.status_code != 200:
-            msg_str = f"SEARCH RESPONCE ERROR: <{r.status_code}>. Try Again\n/help"
+            msg_str = f"SEARCH RESPONSE ERROR: <{r.status_code}>. Try Again\n/help"
             await update.message.reply_text(msg_str)
             return ConversationHandler.END
 
@@ -340,16 +340,16 @@ async def confirfm_movie_selection(update: Update, context: ContextTypes.DEFAULT
     tmdb_id = str(tmdb_id).strip()
     imdb_id = str(imdb_id).strip()
     
-    ## Get the data from tvdb api
+    ## Get the data from local lookup API using tvdb id
     await query.message.reply_text("Getting movie info...")
     try:
-        end_point = f"https://imdb-api.com/en/API/Title/k_f01i69si/{imdb_id}"
+        end_point = f"http://localhost:7878/api/v3/movie/lookup/tmdb?tmdbId={tmdb_id}&apikey={RADARR_KEY}"
         r = requests.get(end_point)
         print(f"Getting movie info: {end_point}")
         
-        ## Check responce
+        ## Check RESPONSE
         if r.status_code != 200:
-            msg_str = f"RESPONCE ERROR: <{r.status_code}>\n\n/help"
+            msg_str = f"RESPONSE ERROR: <{r.status_code}>\n\n/help"
             await query.message.reply_text(msg_str)
             return
         
@@ -358,14 +358,19 @@ async def confirfm_movie_selection(update: Update, context: ContextTypes.DEFAULT
     except Exception as e:
         msg_str = f"REQUEST ERROR: {e}\n/help"
         await query.message.reply_text(msg_str)
-        return 
+        return
     
     
     movie_title = movie_data['title']
     movie_id = int(tmdb_id)
+
+    if movie_title is None or movie_title == "None":
+        msg_str = f"REQUEST ERROR: Name could not be found from API call, response was None\n/help"
+        await query.message.reply_text(msg_str)
+        return
     
 
-    await query.message.reply_text(text=f"👍 Processing {movie_title} download...")
+    await query.message.reply_text(text=f"👍 Processing {movie_title} for download...")
     print(movie_title, movie_id)
 
     ## Get movie info
@@ -387,21 +392,21 @@ async def confirfm_movie_selection(update: Update, context: ContextTypes.DEFAULT
         end_point = f"http://localhost:7878/api/v3/movie?apikey={RADARR_KEY}"
         r = requests.post(end_point, json=payload)
 
-        ## Check responce
+        ## Check RESPONSE
         if r.status_code == 400:
-            msg_str = f"SEND POST RESPONCE ERROR: <{r.status_code}> {r.json()[0]['errorMessage']}\n\n/help"
+            msg_str = f"SEND POST RESPONSE ERROR: <{r.status_code}> {r.json()[0]['errorMessage']}\n\n/help"
             await query.message.reply_text(msg_str)
             return
         
         elif r.status_code != 201:
-            msg_str = f"SEND POST RESPONCE ERROR: <{r.status_code}>\n\n/help"
+            msg_str = f"SEND POST RESPONSE ERROR: <{r.status_code}>\n\n/help"
             await query.message.reply_text(msg_str)
             return
 
     except Exception as e:
         msg_str = f"SEND POST REQUEST EXCEPTION: {e}\n/help"
         await query.message.reply_text(msg_str)
-        return 
+        return
     
     added_movie_data = r.json()
     reply_msg = f""" ✅ Successfully added: {added_movie_data['title']} ({added_movie_data['images'][0]['remoteUrl']})\n\n/help"""
@@ -437,9 +442,9 @@ async def show_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg_str)
         return ConversationHandler.END
 
-    ## Check responce
+    ## Check RESPONSE
     if r.status_code != 200:
-        msg_str = f"RESPONCE ERROR: <{r.status_code}>. Try Again\n/help"
+        msg_str = f"RESPONSE ERROR: <{r.status_code}>. Try Again\n/help"
         await update.message.reply_text(msg_str)
         return ConversationHandler.END
     
@@ -489,12 +494,12 @@ async def confirfm_tv_selection(update: Update, context: ContextTypes.DEFAULT_TY
     ## Get the data from tvdb api
     await query.message.reply_text("Getting show info...")
     try:
-        end_point = f"https://api.thetvdb.com/series/{show_id}"
+        end_point = f"http://localhost:8989/api/v3/series?tvdbId={show_id}&includeSeasonImages=false&apikey={SONARR_KEY}"
         r = requests.get(end_point)
         
-        ## Check responce
+        ## Check RESPONSE
         if r.status_code != 200:
-            msg_str = f"RESPONCE ERROR: <{r.status_code}>\n\n/help"
+            msg_str = f"RESPONSE ERROR: <{r.status_code}>\n\n/help"
             await query.message.reply_text(msg_str)
             return
         
@@ -506,9 +511,7 @@ async def confirfm_tv_selection(update: Update, context: ContextTypes.DEFAULT_TY
         return 
     
     
-    show_title = show_data['data']['seriesName']
-    show_id = show_data['data']['id']
-
+    show_title = show_data['title']
 
     await query.message.reply_text(text=f"👍 Processing {show_title} download...")
     print(show_title, show_id)
@@ -536,9 +539,9 @@ async def confirfm_tv_selection(update: Update, context: ContextTypes.DEFAULT_TY
         end_point = f"http://localhost:8989/api/v3/series?apikey={SONARR_KEY}"
         r = requests.post(end_point, json=payload)
 
-        ## Check responce
+        ## Check RESPONSE
         if r.status_code != 201:
-            msg_str = f"RESPONCE ERROR: <{r.status_code}>\n\n/help"
+            msg_str = f"RESPONSE ERROR: <{r.status_code}>\n\n/help"
             await query.message.reply_text(msg_str)
             return
 
@@ -633,7 +636,7 @@ def run_bot():
             ],
             SELECTION: [
                 CallbackQueryHandler(confirfm_movie_selection, pattern=".*"),
-                # MessageHandler(filters.TEXT, confirfm_selection),
+                # MessageHandler(filters.TEXT, confirm_selection),
             ],
             SHOW_TITLE: [
                 MessageHandler(filters.TEXT, show_search),
@@ -654,6 +657,9 @@ def run_bot():
 
 
 if __name__ == '__main__':
-    run_bot()
+    try:
+        run_bot()
+    except Exception as e:
+        print(f"EXCEPTION RUNNING BOT: {e}")
     
 
